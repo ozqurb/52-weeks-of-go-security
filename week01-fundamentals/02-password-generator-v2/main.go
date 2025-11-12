@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"strings"
 	"time"
 )
@@ -85,6 +86,26 @@ func buildCharset() string {
 	return lowercase + uppercase + numbers + symbols
 }
 
+func savePasswordToFile(entry string) error {
+	saveDir := "C:\\Passwords"
+	filePath := saveDir + "\\passwords.txt"
+
+	if _, err := os.Stat(saveDir); os.IsNotExist(err) {
+		os.MkdirAll(saveDir, 0755)
+	}
+
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(entry + "\n"); err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
@@ -97,10 +118,10 @@ func main() {
 	}
 
 	if length < 8 {
-		fmt.Println("Warning: Password length should be at least 8 characters")
+		fmt.Println("Warning: Password length should be at least 8 characters: ")
 	}
 
-	quantity, err := getIntInput("How many passwords")
+	quantity, err := getIntInput("How many passwords: ")
 	if err != nil {
 		fmt.Println("Error: ", err)
 		return
@@ -109,12 +130,24 @@ func main() {
 	charset := buildCharset()
 
 	fmt.Println("\n" + strings.Repeat("-", 50))
+
 	for i := 1; i <= quantity; i++ {
+		var label string
+		fmt.Printf("\nEnter a label for password #%d (e.g. facebook, github):", i)
+		fmt.Scan(&label)
+
 		password := generatePassword(length, charset)
 		strength := checkPasswordStrength(password)
 
-		fmt.Printf("\n#%d Password: %s\n", i, password)
-		fmt.Printf("   Length: %d | Strength: %s\n", len(password), strength)
+		fmt.Printf("Generated for %s -> %s\n", label, password)
+		fmt.Printf("Length: %d | Strength: %s\n", len(password), strength)
+
+		entry := fmt.Sprintf("%s - %s", label, password)
+		if err := savePasswordToFile(entry); err != nil {
+			fmt.Println("Error saving password: ", err)
+		} else {
+			fmt.Println("Saved to C:\\Passwords")
+		}
 	}
 
 	fmt.Println(strings.Repeat("-", 50))
