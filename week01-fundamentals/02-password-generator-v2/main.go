@@ -1,33 +1,71 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
 
 func printBanner() {
-	fmt.Println("Password Generator v2.0")
+	fmt.Println("Password generator v2")
 	fmt.Println(strings.Repeat("=", 50))
 	fmt.Println()
 }
 
-func getIntInput(prompt string) (int, error) {
-	var value int
-	fmt.Print(prompt)
+func getIntInput(prompt string, min int) int {
+	reader := bufio.NewReader(os.Stdin)
 
-	_, err := fmt.Scan(&value)
-	if err != nil {
-		return 0, fmt.Errorf("invalid input: please enter a number")
+	for {
+		fmt.Print(prompt)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading input please try again.")
+			continue
+		}
+
+		//trim whitespace and newline
+		input = strings.TrimSpace(input)
+
+		value, err := strconv.Atoi(input)
+		if err != nil {
+			fmt.Println("Invalid input! Please enter a valid number.")
+			continue
+		}
+
+		if value < min {
+			fmt.Printf("Value must be at least %d. Please try again.\n", min)
+			continue
+		}
+
+		return value
 	}
+}
 
-	if value <= 0 {
-		return 0, fmt.Errorf("value must be greater than 0")
+func getStringInput(prompt string) string {
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		fmt.Print(prompt)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading input. Please try again.")
+			continue
+		}
+
+		input = strings.TrimSpace(input)
+
+		if input == "" {
+			fmt.Println("Input cannot be empty. Please try again")
+			continue
+		}
+
+		return input
 	}
-
-	return value, nil
 }
 
 func generatePassword(length int, charset string) string {
@@ -67,13 +105,13 @@ func checkPasswordStrength(password string) string {
 	}
 
 	if score >= 5 {
-		return "very strong"
+		return "Very Strong"
 	} else if score >= 4 {
-		return "strong"
+		return "Strong"
 	} else if score >= 3 {
-		return "medium"
+		return "Medium"
 	} else {
-		return "weak"
+		return "Weak"
 	}
 }
 
@@ -87,21 +125,31 @@ func buildCharset() string {
 }
 
 func savePasswordToFile(entry string) error {
-	saveDir := "C:\\Passwords"
-	filePath := saveDir + "\\passwords.txt"
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		homeDir = "."
+	}
+
+	saveDir := filepath.Join(homeDir, "Passwords")
+	filePath := filepath.Join(saveDir, "passwords.txt")
 
 	if _, err := os.Stat(saveDir); os.IsNotExist(err) {
-		os.MkdirAll(saveDir, 0755)
+		if err := os.MkdirAll(saveDir, 0755); err != nil {
+			return fmt.Errorf("Failed to create directory: %v", err)
+		}
 	}
 
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to open file: %v", err)
 	}
 	defer file.Close()
 
-	if _, err := file.WriteString(entry + "\n"); err != nil {
-		return err
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	entryWithTime := fmt.Sprintf("[%s] %s\n", timestamp, entry)
+
+	if _, err := file.WriteString(entryWithTime); err != nil {
+		return fmt.Errorf("Failed to write to file: %v", err)
 	}
 	return nil
 }
@@ -111,43 +159,32 @@ func main() {
 
 	printBanner()
 
-	length, err := getIntInput("Password length (min 8): ")
-	if err != nil {
-		fmt.Println("Error: ", err)
-		return
-	}
+	length := getIntInput("Password length (min 8): ", 8)
+	fmt.Printf("length set to: %d\n\n", length)
 
-	if length < 8 {
-		fmt.Println("Warning: Password length should be at least 8 characters: ")
-		return
-	}
-
-	quantity, err := getIntInput("How many passwords: ")
-	if err != nil {
-		fmt.Println("Error: ", err)
-		return
-	}
+	quantity := getIntInput("How many passwords (min 1): ", 1)
+	fmt.Printf("Will generate %d password(s)\n", quantity)
 
 	charset := buildCharset()
 
 	fmt.Println("\n" + strings.Repeat("-", 50))
 
 	for i := 1; i <= quantity; i++ {
-		var label string
-		fmt.Printf("\nEnter a label for password #%d (e.g. facebook, github):", i)
-		fmt.Scan(&label)
+		label := getStringInput(fmt.Sprintf("\n Enter label for password #%d (e.g. github, gmail): ", i))
 
 		password := generatePassword(length, charset)
 		strength := checkPasswordStrength(password)
 
-		fmt.Printf("Generated for %s -> %s\n", label, password)
+		fmt.Printf("Generated for '%s':%s\n", label, password)
 		fmt.Printf("Length: %d | Strength: %s\n", len(password), strength)
 
 		entry := fmt.Sprintf("%s - %s", label, password)
 		if err := savePasswordToFile(entry); err != nil {
-			fmt.Println("Error saving password: ", err)
+			fmt.Println("Error saving password:", err)
 		} else {
-			fmt.Println("Saved to C:\\Passwords")
+			homeDir, _ := os.UserHomeDir()
+			savePath := filepath.Join(homeDir, "Passwords", "passwords.txt")
+			fmt.Printf("Saved to: %s\n", savePath)
 		}
 	}
 
