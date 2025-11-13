@@ -119,6 +119,7 @@ func main() {
 
 	if length < 8 {
 		fmt.Println("Warning: Password length should be at least 8 characters: ")
+		return
 	}
 
 	quantity, err := getIntInput("How many passwords: ")
